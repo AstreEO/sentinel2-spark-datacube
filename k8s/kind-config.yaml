@@ -1,0 +1,32 @@
+# kind cluster configuration — sentinel2-spark-datacube
+# ────────────────────────────────────────────────────────────────────────────
+# Mounts the local Sentinel-2 tile directory into every worker node so that
+# executor pods can read zip archives via the hostPath PersistentVolume.
+#
+# Usage (creates / recreates the cluster):
+#
+#   DATA_RAW=$(realpath data/raw)
+#   sed "s|__DATA_RAW__|${DATA_RAW}|g" k8s/kind-config.yaml \
+#     | kind create cluster --name cern-lab --config=-
+#
+# If the cluster already exists use scripts/copy_data_to_kind.sh instead —
+# it copies the zip files directly into running nodes via docker cp.
+# ────────────────────────────────────────────────────────────────────────────
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cern-lab
+
+nodes:
+  - role: control-plane
+
+  - role: worker
+    extraMounts:
+      - hostPath: __DATA_RAW__      # replaced by sed at cluster creation time
+        containerPath: /sentinel2-data
+        readOnly: true
+
+  - role: worker
+    extraMounts:
+      - hostPath: __DATA_RAW__
+        containerPath: /sentinel2-data
+        readOnly: true

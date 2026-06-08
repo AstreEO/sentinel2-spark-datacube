@@ -1,0 +1,55 @@
+# PersistentVolume + PersistentVolumeClaim for Sentinel-2 tile data
+# ────────────────────────────────────────────────────────────────────────────
+# The PV is backed by hostPath /sentinel2-data on kind worker nodes.
+# That directory is populated by one of two methods:
+#
+#   A) New cluster  → kind extraMounts in k8s/kind-config.yaml bind-mount the
+#                     host data/raw/ directory into nodes at /sentinel2-data.
+#
+#   B) Existing cluster (default) → scripts/copy_data_to_kind.sh copies zip
+#                     files into running nodes via `docker cp`.
+#
+# Executor pods mount this PVC read-only at /data/raw.
+# The loader sets SPARK_DATA_DIR=/data/raw so _resolve_path() finds the zips.
+# ────────────────────────────────────────────────────────────────────────────
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: spark-data-pv
+  labels:
+    app.kubernetes.io/component: spark-data
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""        # static provisioning — no StorageClass needed
+  hostPath:
+    path: /sentinel2-data
+    type: DirectoryOrCreate
+  # Only schedule executor pods on workers (not on control-plane)
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spark-data-pvc
+  namespace: spark-jobs
+  labels:
+    app.kubernetes.io/component: spark-data
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: ""
+  volumeName: spark-data-pv   # bind directly to the named PV

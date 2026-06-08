@@ -102,13 +102,40 @@ def _to_linux_path(path: str) -> str:
     return path  # already a Linux path
 
 
+def _resolve_path(path: str) -> str:
+    """
+    Resolve a tile zip path for the current execution environment.
+
+    Two cases:
+    - Kubernetes executor pod  → SPARK_DATA_DIR=/data/raw is injected via
+      spark.executorEnv in spark_session.py.  The PVC is mounted flat, so
+      only the filename is needed.
+    - WSL2 local[8] mode       → convert Windows C:\\... path to /mnt/c/...
+    """
+    import os
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    data_dir = os.environ.get("SPARK_DATA_DIR")
+    if data_dir:
+        # Extract the filename regardless of whether the stored path is
+        # Windows (C:\...) or POSIX (/mnt/c/...) format.
+        try:
+            filename = PureWindowsPath(path).name
+        except Exception:
+            filename = PurePosixPath(path).name
+        return str(Path(data_dir) / filename)
+
+    # Local WSL2: convert Windows path separators
+    return _to_linux_path(path)
+
+
 def load_datacube(spark: SparkSession) -> DataFrame:
     manifest_path = RAW_DIR / "manifest.json"
     if not manifest_path.exists():
         raise FileNotFoundError(f"Manifest not found at {manifest_path}.")
 
     entries = json.loads(manifest_path.read_text())
-    records = [(_to_linux_path(e["path"]), e["date"]) for e in entries]
+    records = [(_resolve_path(e["path"]), e["date"]) for e in entries]
 
     print(f"  Parallelising {len(entries)} tiles across {spark.sparkContext.defaultParallelism} cores")
     rdd = spark.sparkContext.parallelize(records, numSlices=len(records))
