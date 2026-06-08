@@ -192,9 +192,6 @@ spark-warehouse/
 derby.log
 metastore_db/
 
-# Docker build cache
-.dockerignore
-
 # kind / kubectl temp files
 kubeconfig*
 *.kubeconfig

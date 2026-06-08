@@ -1,0 +1,30 @@
+# Exclude large raw data files — they are mounted via PVC in k8s,
+# not baked into the image.
+data/raw/*.zip
+data/raw/*.SAFE
+data/processed/
+
+# Git history
+.git/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Logs and temp files
+*.log
+*.txt
+*.part
+
+# Editor noise
+.vscode/
+.idea/
+.DS_Store
